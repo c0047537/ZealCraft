@@ -28,6 +28,16 @@ const reducer = (state, action) => {
       return { ...state, loadingUpdate: false };
     case 'UPDATE_FAIL':
       return { ...state, loadingUpdate: false };
+    case 'UPLOAD_REQUEST':
+      return { ...state, loadingUpload: true, errorUpload: '' };
+    case 'UPLOAD_SUCCESS':
+      return {
+        ...state,
+        loadingUpload: false,
+        errorUpload: '',
+      };
+    case 'UPLOAD_FAIL':
+      return { ...state, loadingUpload: false, errorUpload: action.payload };
     default:
       return state;
   }
@@ -40,11 +50,12 @@ export default function CategoryEditScreen() {
   const { id: categoryId } = params;
   const navigate = useNavigate();
 
-  const [{ loading, error, loadingUpdate }, dispatch] = useReducer(reducer, {
-    loading: true,
-    error: '',
-    loadingUpdate: false,
-  });
+  const [{ loading, error, loadingUpdate, loadingUpload }, dispatch] =
+    useReducer(reducer, {
+      loading: true,
+      error: '',
+      loadingUpdate: false,
+    });
 
   const [categoryName, setCategoryName] = useState('');
   const [categoryDescription, setCategoryDescription] = useState('');
@@ -104,7 +115,26 @@ export default function CategoryEditScreen() {
       dispatch({ type: 'UPDATE_FAIL' });
     }
   };
-
+  const uploadFileHandler = async (e) => {
+    const file = e.target.files[0];
+    const bodyFormData = new FormData();
+    bodyFormData.append('file', file);
+    try {
+      dispatch({ type: 'UPLOAD_REQUEST' });
+      const { data } = await axios.post('/api/upr', bodyFormData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          authorization: `Bearer ${userInfo.token}`,
+        },
+      });
+      dispatch({ type: 'UPLOAD_SUCCESS' });
+      toast.success('Image uploaded successfully');
+      setImg(data.secure_url);
+    } catch (err) {
+      toast.error(getError(err));
+      dispatch({ type: 'UPLOAD_FAIL', payload: getError(err) });
+    }
+  };
   return (
     <div>
       <Helmet>
@@ -132,21 +162,47 @@ export default function CategoryEditScreen() {
                 onChange={(e) => setCategoryDescription(e.target.value)}
               />
             </Form.Group>
-            <Form.Group className="mb-3" controlId="pimage">
+            <Form.Group className="mb-1" controlId="status">
               <Form.Label>Category Status</Form.Label>
-              <Form.Control
-                value={categoryStatus}
-                onChange={(e) => setCategoryStatus(e.target.value)}
-              />
             </Form.Group>
+            <ToggleButtonGroup
+              className="mb-3"
+              type="radio"
+              name="storeStatus"
+              defaultValue={categoryStatus}
+              onChange={(value) => setCategoryStatus(value)}
+            >
+              {' '}
+              <ToggleButton
+                id="tbg-btn-1"
+                value={'Active'}
+                variant="outline-success"
+              >
+                Active
+              </ToggleButton>
+              <ToggleButton
+                id="tbg-btn-2"
+                value={'Inactive'}
+                variant="outline-secondary"
+              >
+                Inactive
+              </ToggleButton>
+            </ToggleButtonGroup>
             <Form.Group className="mb-3" controlId="punit">
               <Form.Label className="mr-3">Image</Form.Label>{' '}
               <img src={img} className="img-thumbnail" alt={categoryName} />
+              <Form.Control
+                className="mt-3"
+                value={img}
+                onChange={(e) => setImg(e.target.value)}
+              />
             </Form.Group>
-
+            <Form.Group className="mb-3" controlId="imageFile">
+              <Form.Label>Upload Image</Form.Label>
+              <Form.Control type="file" onChange={uploadFileHandler} />
+              {loadingUpload && <LoadingBox></LoadingBox>}
+            </Form.Group>
             <div className="mb-3 mr-1" style={{ display: 'flex' }}>
-              {/* &nbsp; */}
-
               <Button
                 className="btn-cancel"
                 type="buttton"
@@ -163,7 +219,6 @@ export default function CategoryEditScreen() {
               {loadingUpdate && <LoadingBox></LoadingBox>}
             </div>
           </Form>
-          <ToastContainer />
         </Container>
       )}
     </div>

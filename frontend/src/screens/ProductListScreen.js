@@ -84,17 +84,17 @@ export default function ProductListScreen() {
           <Table borderless className="table-custom">
             <thead>
               <tr>
-                <th>ID</th>
                 <th>NAME</th>
                 <th>DETAIL</th>
+                <th>Price</th>
               </tr>
             </thead>
             <tbody>
               {products.map((product) => (
                 <tr key={product._id}>
-                  <td>{product._id}</td>
                   <td>{product.productName}</td>
                   <td>{product.productDescription}</td>
+                  <td>{product.currentPrice}</td>
                   <td>
                     <Button
                       className="btn-primary"
@@ -115,7 +115,6 @@ export default function ProductListScreen() {
           Back
         </Button>
       </Container>
-      <ToastContainer />
     </div>
   );
 }

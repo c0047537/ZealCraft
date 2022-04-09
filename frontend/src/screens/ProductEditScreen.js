@@ -3,11 +3,14 @@ import React, { useContext, useEffect, useReducer, useState } from 'react';
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Container from 'react-bootstrap/Container';
+import ListGroup from 'react-bootstrap/ListGroup';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
 import LoadingBox from '../components/LoadingBox';
 import MessageBox from '../components/MessageBox';
+import ToggleButtonGroup from 'react-bootstrap/ToggleButtonGroup';
+import ToggleButton from 'react-bootstrap/ToggleButton';
 import { Store } from '../Store';
 import { getError } from '../utils';
 
@@ -25,6 +28,16 @@ const reducer = (state, action) => {
       return { ...state, loadingUpdate: false };
     case 'UPDATE_FAIL':
       return { ...state, loadingUpdate: false };
+    case 'UPLOAD_REQUEST':
+      return { ...state, loadingUpload: true, errorUpload: '' };
+    case 'UPLOAD_SUCCESS':
+      return {
+        ...state,
+        loadingUpload: false,
+        errorUpload: '',
+      };
+    case 'UPLOAD_FAIL':
+      return { ...state, loadingUpload: false, errorUpload: action.payload };
     case 'DELETE_REQUEST':
       return { ...state, loadingDelete: true, successDelete: false };
     case 'DELETE_SUCCESS':
@@ -50,7 +63,14 @@ export default function ProductEditScreen() {
   const navigate = useNavigate();
 
   const [
-    { loading, error, loadingUpdate, loadingDelete, successDelete },
+    {
+      loading,
+      error,
+      loadingUpdate,
+      loadingUpload,
+      loadingDelete,
+      successDelete,
+    },
     dispatch,
   ] = useReducer(reducer, {
     loading: true,
@@ -72,6 +92,9 @@ export default function ProductEditScreen() {
   const [storeId, setStoreId] = useState('');
   const [categoryName, setCategoryName] = useState('');
   const [storeName, setStoreName] = useState('');
+  const [productStatus, setProductStatus] = useState('');
+  const [productCategory, setProductCategory] = useState('');
+  const [uploading, setUploading] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -94,6 +117,8 @@ export default function ProductEditScreen() {
         setStoreId(data.product.storeId);
         setCategoryName(data.category.categoryName);
         setStoreName(data.store.storeName);
+        setProductStatus(data.product.productStatus);
+        setProductCategory(data.category.categoryName);
         dispatch({ type: 'FETCH_SUCCESS', payload: data });
       } catch (err) {
         dispatch({
@@ -128,6 +153,8 @@ export default function ProductEditScreen() {
           isFeatured,
           productCategoryId,
           storeId,
+          productStatus,
+          productCategory,
         },
         {
           headers: { Authorization: `Bearer ${userInfo.token}` },
@@ -147,6 +174,26 @@ export default function ProductEditScreen() {
     }
   };
 
+  const uploadFileHandler = async (e) => {
+    const file = e.target.files[0];
+    const bodyFormData = new FormData();
+    bodyFormData.append('file', file);
+    try {
+      dispatch({ type: 'UPLOAD_REQUEST' });
+      const { data } = await axios.post('/api/upr', bodyFormData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          authorization: `Bearer ${userInfo.token}`,
+        },
+      });
+      dispatch({ type: 'UPLOAD_SUCCESS' });
+      toast.success('Image uploaded successfully');
+      setImages(data.secure_url);
+    } catch (err) {
+      toast.error(getError(err));
+      dispatch({ type: 'UPLOAD_FAIL', payload: getError(err) });
+    }
+  };
   const deleteHandler = async (product) => {
     if (window.confirm('Are you sure to delete?')) {
       try {
@@ -195,11 +242,19 @@ export default function ProductEditScreen() {
               />
             </Form.Group>
             <Form.Group className="mb-3" controlId="pimage">
-              <Form.Label>Images</Form.Label>
+              <Form.Label className="mr-3">Images</Form.Label>
+              <img src={images} className="img-thumbnail" alt={productName} />
               <Form.Control
+                className="mt-3"
+                id="images"
                 value={images}
                 onChange={(e) => setImages(e.target.value)}
               />
+            </Form.Group>
+            <Form.Group className="mb-3" controlId="imageFile">
+              <Form.Label>Upload Image</Form.Label>
+              <Form.Control type="file" onChange={uploadFileHandler} />
+              {loadingUpload && <LoadingBox></LoadingBox>}
             </Form.Group>
             <Form.Group className="mb-3" controlId="punit">
               <Form.Label>Unit Of Measure</Form.Label>
@@ -236,19 +291,61 @@ export default function ProductEditScreen() {
                 onChange={(e) => setDiscountedPrice(e.target.value)}
               />
             </Form.Group>
-            <Form.Group className="mb-3" controlId="supportPhone">
+            <Form.Group className="mb-1" controlId="featured">
               <Form.Label>Is Featured</Form.Label>
-              <Form.Control
-                value={isFeatured}
-                onChange={(e) => setIsFeatured(e.target.value)}
-              />
             </Form.Group>
+            <ToggleButtonGroup
+              className="mb-3"
+              type="radio"
+              name="featured"
+              defaultValue={isFeatured}
+              onChange={(value) => setIsFeatured(value)}
+            >
+              {' '}
+              <ToggleButton
+                id="tbg-btn-3"
+                value={true}
+                variant="outline-success"
+              >
+                Yes
+              </ToggleButton>
+              <ToggleButton
+                id="tbg-btn-4"
+                value={false}
+                variant="outline-secondary"
+              >
+                No
+              </ToggleButton>
+            </ToggleButtonGroup>
+            <Form.Group className="mb-1" controlId="status">
+              <Form.Label>Product Status</Form.Label>
+            </Form.Group>
+            <ToggleButtonGroup
+              className="mb-3"
+              type="radio"
+              name="storeStatus"
+              defaultValue={productStatus}
+              onChange={(value) => setProductStatus(value)}
+            >
+              {' '}
+              <ToggleButton
+                id="tbg-btn-1"
+                value={'Active'}
+                variant="outline-success"
+              >
+                Active
+              </ToggleButton>
+              <ToggleButton
+                id="tbg-btn-2"
+                value={'Inactive'}
+                variant="outline-secondary"
+              >
+                Inactive
+              </ToggleButton>
+            </ToggleButtonGroup>
             <Form.Group className="mb-3" controlId="supportPhone">
-              {/* <Form.Label>Product Category</Form.Label>
-            <Form.Control defaultValue={productCategoryId} readonly />
-          </Form.Group> */}
               <Form.Label>Product Category</Form.Label>
-              <Form.Control disabled defaultValue={categoryName} />
+              <Form.Control disabled defaultValue={productCategory} />
             </Form.Group>
             <Form.Group className="mb-3" controlId="supportPhone">
               <Form.Label>Store</Form.Label>
@@ -280,7 +377,7 @@ export default function ProductEditScreen() {
               {loadingUpdate && <LoadingBox></LoadingBox>}
             </div>
           </Form>
-          <ToastContainer />
+          {/* <ToastContainer /> */}
         </Container>
       )}
     </div>
